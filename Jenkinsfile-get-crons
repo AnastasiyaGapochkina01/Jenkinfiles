@@ -6,15 +6,18 @@ pipeline {
     environment {
         TOKEN = credentials('telegram-key')
         CHAT_ID = 641041957
-        HOST = "127.0.0.1"
+        //HOST = "127.0.0.1"
+    }
+    parameters {
+        choice(name: 'HOST', choices: ["127.0.0.1", "rest-api-dev", "rest-api-prod"])
     }
     stages {
         stage('Configure credentials'){
             steps{
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-key', keyFileVariable: 'private_key', usernameVariable: 'username')]){
                     script {
-                        remote.name = "${env.HOST}"
-                        remote.host = "${env.HOST}"
+                        remote.name = "${params.HOST}"
+                        remote.host = "${params.HOST}"
                         remote.user = "jenkins"
                         remote.identity = readFile "$private_key"
                         remote.allowAnyHosts = true

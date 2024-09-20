@@ -1,0 +1,49 @@
+def remote = [:]
+def cronList = ""
+def hostName = ""
+pipeline {
+    agent any
+    environment {
+        TOKEN = credentials('telegram-key')
+        CHAT_ID = 641041957
+        HOST = "127.0.0.1"
+    }
+    stages {
+        stage('Configure credentials'){
+            steps{
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-key', keyFileVariable: 'private_key', usernameVariable: 'username')]){
+                    script {
+                        remote.name = "${env.HOST}"
+                        remote.host = "${env.HOST}"
+                        remote.user = "jenkins"
+                        remote.identity = readFile "$private_key"
+                        remote.allowAnyHosts = true
+                        remote.agentForwarding = true
+                    }
+                }
+            }
+        }
+        stage('Get crontab jobs') {
+            steps {
+                script {
+                    cronList = sshCommand remote: remote, command: "sudo crontab -l -u www-data | grep -o '^[^#]*'"
+                    hostName = sshCommand remote: remote, command: "hostname -f"
+                    env.CRONS = cronList
+                    env.HOST_NAME = hostName
+                }
+            }
+        }
+        stage('Send report'){
+            steps {
+                script {
+                    sh """
+                    curl -X POST -H 'Content-Type: application/json' \
+                    -d '{"chat_id": "$CHAT_ID", "text": "$HOST_NAME\n$CRONS", "disable_notification": true}' \
+                    https://api.telegram.org/bot$TOKEN/sendMessage
+                    """
+                }
+            }
+        }
+        
+    }
+}
